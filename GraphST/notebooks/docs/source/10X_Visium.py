@@ -13,6 +13,14 @@ from GraphST.utils import clustering
 import warnings
 warnings.filterwarnings('ignore')
 
+import sys
+sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/utils')
+from sdmbench import compute_ARI, compute_NMI, compute_CHAOS, compute_PAS, compute_ASW, compute_HOM, compute_COM
+
+import time
+import psutil
+import tracemalloc
+
 
 def load_data(file_fold: str, is_breast_cancer: bool) -> sc.AnnData:
     """Load spatial data and metadata"""
@@ -45,44 +53,86 @@ def save_results(adata: sc.AnnData, output_dir: str):
     os.makedirs(output_dir, exist_ok=True)
 
     low_dim_data = pd.DataFrame(adata.obsm['feat'], index=adata.obs.index)
-    expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
+    # expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
     cell_metadata = adata.obs
 
     low_dim_data.to_csv(f"{output_dir}/low_dim_data.csv")
-    expression_data.T.to_csv(f"{output_dir}/expression_matrix.csv")
+    # expression_data.T.to_csv(f"{output_dir}/expression_matrix.csv")
     cell_metadata.to_csv(f"{output_dir}/cell_metadata.csv")
 
-def evaluate_clustering(adata: sc.AnnData, df_meta) -> float:
-    """Evaluate clustering using ARI"""
-    df_meta_layer = df_meta['layer_guess']
-    adata.obs['ground_truth'] = df_meta_layer.values
+# def evaluate_clustering(adata: sc.AnnData, df_meta) -> float:
+#     """Evaluate clustering using ARI"""
+#     df_meta_layer = df_meta['layer_guess']
+#     adata.obs['ground_truth'] = df_meta_layer.values
+#     adata = adata[~pd.isnull(adata.obs['ground_truth'])]
+
+#     ARI = metrics.adjusted_rand_score(adata.obs['domain'], adata.obs['ground_truth'])
+#     AMI = metrics.adjusted_mutual_info_score(adata.obs['domain'], adata.obs['ground_truth'])
+#     homogeneity, completeness, _ = metrics.homogeneity_completeness_v_measure(adata.obs['domain'], adata.obs['ground_truth'])
+#     adata.uns['ARI'] = ARI
+
+#     # Continuity Metrics
+#     ASW = metrics.silhouette_score(adata.obsm['feat'], adata.obs['domain']) if 'feat' in adata.obsm else np.nan
+#     CHAOS = np.nan  # Placeholder: Define based on domain knowledge
+#     PAS = np.nan  # Placeholder: Define based on domain knowledge
+
+#     results = {
+#         "ARI": ARI,
+#         "AMI": AMI,
+#         "Homogeneity": homogeneity,
+#         "Completeness": completeness,
+#         "ASW": ASW,
+#         "CHAOS": CHAOS,
+#         "PAS": PAS
+#     }
+
+#     return results
+
+def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_used: float, output_dir: str) -> dict:
+    """Evaluate clustering using sdmbench"""
+    gt_key = 'layer_guess'
+    pred_key = 'domain'
+    adata.obs['ground_truth'] = df_meta[gt_key].values
     adata = adata[~pd.isnull(adata.obs['ground_truth'])]
+    
+    results = {
+        "ARI": compute_ARI(adata, gt_key, pred_key),
+        "AMI": compute_NMI(adata, gt_key, pred_key),
+        "Homogeneity": compute_HOM(adata, gt_key, pred_key),
+        "Completeness": compute_COM(adata, gt_key, pred_key),
+        "ASW": compute_ASW(adata, pred_key),
+        "CHAOS": compute_CHAOS(adata, pred_key),
+        "PAS": compute_PAS(adata, pred_key),
+        "Time": time_taken,
+        "Memory": memory_used
+    }
+    
+    df_results = pd.DataFrame([results])
+    df_results.to_csv(os.path.join(output_dir, "metrics.csv"), index=False)
+    return results
 
-    ARI = metrics.adjusted_rand_score(adata.obs['domain'], adata.obs['ground_truth'])
-    adata.uns['ARI'] = ARI
-    return ARI 
-
-def visulize_results(adata: sc.AnnData, ARI: float, output_dir: str):
+def visulize_results(adata: sc.AnnData, ARI: float, output_dir: str, dataset: str = None):
     os.makedirs(output_dir, exist_ok=True)
 
     # Spatial clustering visualization
-    spatial_file = os.path.join(output_dir, "spatial_clustering.png")
+    spatial_file = os.path.join(output_dir, "spatial_clustering.pdf")
     fig, axes = plt.subplots(1, 1, figsize=(8, 4))
+    # fig, axes = plt.subplots(figsize=(6, 6), dpi=300)
     if ARI:
         sc.pl.spatial(adata, 
                 img_key="hires", 
                 color=["ground_truth", "domain"], 
-                title=["Ground truth", "ARI=%.4f"%ARI],
+                title=[f"Ground truth ({dataset})", "GraphST (ARI=%.4f)"%ARI],
                 show=True)
     else:
         sc.pl.spatial(adata, 
                 img_key="hires", 
                 color="domain", 
                 palette="tab20",
-                title="Clustering",
+                title="GraphST",
                 show=True)
     plt.tight_layout()
-    plt.savefig(spatial_file)
+    plt.savefig(spatial_file, format='pdf', dpi=300, bbox_inches='tight')
     plt.close()
     
     # UMAP visualization
@@ -103,8 +153,8 @@ def visulize_results(adata: sc.AnnData, ARI: float, output_dir: str):
         sc.pl.umap(adata, color='domain', ax=axes, show=False)
         axes.set_title('Clustering')
         plt.tight_layout()     
-    umap_file = os.path.join(output_dir, "umap.png")
-    plt.savefig(umap_file)
+    umap_file = os.path.join(output_dir, "umap.pdf")
+    plt.savefig(umap_file, format='pdf', dpi=300, bbox_inches='tight')
     plt.close()
         
     # Save UMAP coordinates
@@ -119,6 +169,10 @@ def visulize_results(adata: sc.AnnData, ARI: float, output_dir: str):
 
 
 def process_dataset(dataset: str, n_clusters: int, radius: int, tool: str, base_dir: str, output_dir: str, device: torch.device):
+    start_time = time.time()
+    # start_mem = psutil.Process().memory_info().rss  # Initial memory usage
+    tracemalloc.start()
+    
     file_fold = os.path.join(base_dir, dataset)
     output_dir = os.path.join(output_dir, dataset)
     is_breast_cancer = 'BRCA' in base_dir
@@ -135,11 +189,20 @@ def process_dataset(dataset: str, n_clusters: int, radius: int, tool: str, base_
     # Save results
     save_results(adata, output_dir)
     
+    end_time = time.time()
+    end_mem = psutil.Process().memory_info().rss  # Final memory usage
+    time_taken = end_time - start_time
+    # memory_used = (end_mem - start_mem) / (1024 ** 2)  # Convert to MB    
+    size, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    memory_used = peak / (1024 ** 2)  # Convert to MB
+    
     # Evaluate clustering
     if not is_breast_cancer:
-        ARI = evaluate_clustering(adata, df_meta)
+        results = evaluate_clustering(adata, df_meta, time_taken, memory_used, output_dir)
+        ARI = results['ARI']
         print(f'Dataset {dataset} ARI: {ARI}')
-        visulize_results(adata, ARI, output_dir)
+        visulize_results(adata, ARI, output_dir, dataset)
     else:
         visulize_results(adata, 0, output_dir)
     
@@ -147,23 +210,23 @@ def main():
     # Device setup
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # base_dir = '/home/lytq/GraphST/data/DLPFC'
-    # datasets = os.listdir(base_dir)
-    # datasets = [d for d in datasets if d.isdigit()]
+    base_dir = '/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC'
+    datasets = os.listdir(base_dir)
+    datasets = [d for d in datasets if d.isdigit()]
     # # print(datasets)
     # print(len(datasets))
     
-    base_dir = '/home/lytq/GraphST/data/BRCA1'
-    datasets = ['V1_Human_Breast_Cancer_Block_A_Section_1']
+    # base_dir = '/home/lytq/Spatial-Transcriptomics-Benchmark/data/BRCA1'
+    # datasets = ['V1_Human_Breast_Cancer_Block_A_Section_1']
     
     radius = 50
     tool = 'mclust'
     data_name = base_dir.split('/')[-1]    
-    output_dir = "/home/lytq/GraphST/results/" + data_name
+    output_dir = "/home/lytq/Spatial-Transcriptomics-Benchmark/RESULTS/" + data_name + "/GraphST"
 
     for dataset in datasets:
-        # n_clusters = 5 if dataset in ['151669', '151670', '151671', '151672'] else 7       
-        n_clusters = 20
+        n_clusters = 5 if dataset in ['151669', '151670', '151671', '151672'] else 7       
+        # n_clusters = 20
         print(f'Processing dataset {dataset}...')
         # print(f'Number of clusters: {n_clusters}')
         process_dataset(dataset, n_clusters, radius, tool, base_dir, output_dir, device)
