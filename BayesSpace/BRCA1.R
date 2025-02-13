@@ -8,6 +8,8 @@ library(clevr)  # Homogeneity, Completeness, V-Measure
 library(cluster)  # ASW
 library(pryr)  # Memory usage
 library(microbenchmark)  # Timing
+library(scater)  # For runUMAP
+
 
 # Define the number of clusters for the BRCA dataset
 batch_cluster_map <- list(
@@ -82,37 +84,42 @@ for (sample.name in names(batch_cluster_map)) {
   memory_usage <- mem_used()
 
   labels <- dlpfc$spatial.cluster
-  gt <- dlpfc$layer_guess
+  gt <- dlpfc$cluster.init
 
   metrics <- calculate_metrics(gt, labels)
   metrics$Time <- elapsed_time
-  metrics$Memory <- memory_usage / (1024^2)  # Convert to MB
+  metrics$Memory <- memory_usage / (1024)  # Convert to MB
 
   # Save metrics
-  write.csv(as.data.frame(metrics), file = file.path(dir.output, 'clustering_metrics.csv'), row.names = FALSE)
+  write.csv(as.data.frame(metrics), file = file.path(dir.output, 'metrics.csv'), row.names = FALSE)
 
   # Spatial Clustering Plot
   cluster_plot <- clusterPlot(dlpfc, label=labels, palette=NULL, size=0.05) +
-    scale_fill_viridis_d(option = "A", labels = as.character(1:max(labels))) +
-    labs(title="BayesSpace") +
+    scale_fill_viridis_d(option = "A", labels = as.character(1:max(labels)), name = NULL) +
+    labs(title=paste("BayesSpace (ARI = ", round(metrics$ARI, 2), ")", sep="")) +
     theme(plot.title = element_text(hjust = 0.5, size = 16))
 
-  ggsave(file.path(dir.output, 'spatial_clustering.pdf'), plot = cluster_plot,
+  ggsave(file.path(dir.output, 'clustering.pdf'), plot = cluster_plot,
          width = 6, height = 6, dpi = 300, device = "pdf")
 
   # Save data as CSV
   write.csv(reducedDim(dlpfc, "PCA"), file = file.path(dir.output, 'low_dim_data.csv'), row.names = TRUE)
   write.csv(colData(dlpfc), file = file.path(dir.output, 'cell_metadata.csv'), row.names = TRUE)
 
+
+  # Compute UMAP embeddings
+  set.seed(103)
+  dlpfc <- runUMAP(dlpfc, dimred="PCA", name="UMAP")
+
   # UMAP
-  umap_coords <- as.data.frame(reducedDim(dlpfc, "UMAP_neighbors15"))
+  umap_coords <- as.data.frame(reducedDim(dlpfc, "UMAP"))
   umap_coords$spot_id <- rownames(umap_coords)
   write.csv(umap_coords, file = file.path(dir.output, "spatial_umap_coords.csv"), row.names = FALSE)
 
   # UMAP Plot
-  umap_plot <- ggplot(umap_coords, aes(x = V1, y = V2, color = as.factor(labels))) +
+  umap_plot <- ggplot(umap_coords, aes(x = UMAP1, y = UMAP2, color = as.factor(labels))) +
     geom_point(size = 1.5, alpha = 0.8) +
-    scale_color_brewer(palette = "Set1", labels = as.character(1:max(labels))) +
+    # scale_color_brewer(palette = "Set1", labels = as.character(1:max(labels))) +
     labs(title = "BayesSpace", x = "UMAP 1", y = "UMAP 2", color = 'Cluster') +
     theme(plot.title = element_text(hjust = 0.5, size = 16),
           panel.grid = element_blank(),
@@ -123,6 +130,6 @@ for (sample.name in names(batch_cluster_map)) {
          width = 6, height = 6, dpi = 300, device = "pdf")
 
   # Expression Matrix
-  expression_data <- as.data.frame(as.matrix(assay(dlpfc, "counts")))
-  write.csv(t(expression_data), file = file.path(dir.output, "expression_matrix.csv"), row.names = TRUE)
+#   expression_data <- as.data.frame(as.matrix(assay(dlpfc, "counts")))
+#   write.csv(t(expression_data), file = file.path(dir.output, "expression_matrix.csv"), row.names = TRUE)
 }
