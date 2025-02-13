@@ -36,7 +36,7 @@ print(f"Using device: {DEVICE}")
 
 
 # Directories for results
-EXP_DIR = Path("./results")
+EXP_DIR = Path("./results/DLPFC/SEDR")
 TASK_DIRS = {
     "clustering": EXP_DIR / "Task1_Clustering",
     "imputation": EXP_DIR / "Task2_Imputation",
