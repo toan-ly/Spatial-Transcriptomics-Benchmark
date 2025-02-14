@@ -26,7 +26,7 @@ from sdmbench import compute_ARI, compute_NMI, compute_CHAOS, compute_PAS, compu
 def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_used: float, output_dir: str) -> dict:
     """Evaluate clustering using sdmbench"""
     gt_key = 'ground_truth'
-    pred_key = 'domain'
+    pred_key = 'DeepST_refine_domain'
     adata.obs['ground_truth'] = df_meta['layer_guess'].values
     adata = adata[~pd.isnull(adata.obs['ground_truth'])]
     
@@ -131,12 +131,13 @@ def main():
         
 
         ###### Spatial localization map of the spatial domain
-        plt.figure(figsize=(6, 6))
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))        
         sc.pl.spatial(adata, 
                       color='DeepST_refine_domain', 
                       frameon = False, 
                       spot_size=150,
-                      title=f'DeepST (ARI = {clustering_results["ARI"]:.4f})',)
+                      title=f'DeepST (ARI = {clustering_results["ARI"]:.4f})',
+                      ax=ax)
         handles, labels = ax.get_legend_handles_labels()
         new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
         ax.legend(handles, new_labels, loc='center left', bbox_to_anchor=(1.05, 0.5), frameon=False) 
@@ -163,7 +164,7 @@ def main():
 
         handles, labels = axes[1].get_legend_handles_labels()
         new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
-        axes[1].legend(handles, new_labels, loc='best', frameon=False)
+        axes[1].legend(handles, new_labels, loc='center left', frameon=False, bbox_to_anchor=(1, 0.5))
         
         for ax in axes:
             ax.set_aspect(1)
@@ -176,9 +177,9 @@ def main():
         # expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
         cell_metadata = adata.obs
 
-        low_dim_data.to_csv(f"{save_root}/low_dim_data.csv")
+        low_dim_data.to_csv(f"{save_root}/low_dim_data.csv", index=False)
         # expression_data.T.to_csv(f"{save_root}/expression_matrix.csv")
-        cell_metadata.to_csv(f"{save_root}/cell_metadata.csv")
+        cell_metadata.to_csv(f"{save_root}/cell_metadata.csv", index=False)
         
         umap_coords = adata.obsm["X_umap"]
         spot_ids = adata.obs_names
