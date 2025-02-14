@@ -9,7 +9,7 @@ from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, \
 from sklearn.preprocessing import LabelEncoder
 
 import sys
-sys.path.append('/home/lytq/SEDR/DeepST-main/deepst')
+sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/DeepST/DeepST-main/deepst')
 from DeepST import run
 
 import warnings
@@ -41,7 +41,7 @@ def calculate_clustering_matrix(pred, gt, sample):
     
 
 def main():
-    data_path = "/home/lytq/SEDR/data/DLPFC_new" #### to your path
+    data_path = "/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC" 
 
     # sample = sys.argv[1]
     data_names = os.listdir(data_path)
@@ -55,7 +55,7 @@ def main():
         if data_name in ['151669', '151673', '151671', '151675']: # Finished
             continue
         
-        save_root = Path(f'/home/lytq/SEDR/results/DeepST/DLPFC/{data_name}')
+        save_root = Path(f'/home/lytq/Spatial-Transcriptomics-Benchmark/RESULTS/DLPFC/DeepST/{data_name}')
         os.makedirs(save_root, exist_ok=True)
 
         print('Processing', data_name, '...')
@@ -108,20 +108,26 @@ def main():
         # print(adata)
 
         ###### Spatial localization map of the spatial domain
-        sc.pl.spatial(adata, color='DeepST_refine_domain', frameon = False, spot_size=150, title='Clustering')
-        plt.savefig(os.path.join(save_root, f'{data_name}_domains.png'), bbox_inches='tight', dpi=300)
+        plt.figure(figsize=(6, 6))
+        sc.pl.spatial(adata, color='DeepST_refine_domain', frameon = False, spot_size=150, title='DeepST')
+        handles, labels = ax.get_legend_handles_labels()
+        new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
+        ax.legend(handles, new_labels, loc='center left', bbox_to_anchor=(1.05, 0.5), frameon=False) 
+        
+        plt.savefig(os.path.join(save_root, f'clustering.pdf'), bbox_inches='tight', dpi=300)
+
 
         adata.obs['DeepST'] = adata.obs['DeepST_refine_domain']
 
-        adata.write(save_root / 'result.h5ad')
-        df_PC = pd.DataFrame(data=adata.obsm['DeepST_embed'], index=adata.obs.index)
-        df_PC.to_csv(save_root / 'PCs.tsv', sep='\t')
-        adata.obs.to_csv( save_root / 'metadata.tsv', sep='\t')
+        # adata.write(save_root / 'result.h5ad')
+        # df_PC = pd.DataFrame(data=adata.obsm['DeepST_embed'], index=adata.obs.index)
+        # df_PC.to_csv(save_root / 'PCs.tsv', sep='\t')
+        # adata.obs.to_csv( save_root / 'metadata.tsv', sep='\t')
 
         ####### Calculate clustering metrics
         obs_df = adata.obs.dropna()
         clustering_results = calculate_clustering_matrix(obs_df['DeepST'], obs_df['Ground Truth'], data_name)
-        clustering_results.to_csv(save_root / 'clustering_results.tsv', sep='\t', index=False)
+        clustering_results.to_csv(save_root / 'metrics.csv', index=False)
         
         ###### UMAP visualization
         sc.pp.neighbors(adata, use_rep='DeepST_embed', n_neighbors=10)
@@ -131,29 +137,29 @@ def main():
         sc.pl.umap(adata, color='Ground Truth', ax=axes[0], show=False)
         sc.pl.umap(adata, color='DeepST_refine_domain', ax=axes[1], show=False)
         axes[0].set_title('Manual Annotation')
-        axes[1].set_title('Clustering')
+        axes[1].set_title('DeepST')
 
         for ax in axes:
             ax.set_aspect(1)
 
         plt.tight_layout()
-        plt.savefig(os.path.join(save_root, f'{data_name}_umap.png'), bbox_inches='tight', dpi=300)
+        plt.savefig(os.path.join(save_root, f'umap.pdf'), bbox_inches='tight', dpi=300)
         
-        if data_name == '151673':
-            low_dim_data = pd.DataFrame(adata.obsm['image_feat'], index=adata.obs.index)
-            expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
-            cell_metadata = adata.obs
+        
+        low_dim_data = pd.DataFrame(adata.obsm['image_feat'], index=adata.obs.index)
+        # expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
+        cell_metadata = adata.obs
 
-            low_dim_data.to_csv(f"{save_root}/low_dim_data.csv")
-            expression_data.T.to_csv(f"{save_root}/expression_matrix.csv")
-            cell_metadata.to_csv(f"{save_root}/cell_metadata.csv")
-            
-            umap_coords = adata.obsm["X_umap"]
-            spot_ids = adata.obs_names
-            umap_df = pd.DataFrame(umap_coords, columns=["UMAP1", "UMAP2"])
-            umap_df["spot_id"] = spot_ids
-            umap_df = umap_df[["spot_id", "UMAP1", "UMAP2"]]
-            umap_df.to_csv(os.path.join(save_root, "spatial_umap_coords.csv"), index=False)
+        low_dim_data.to_csv(f"{save_root}/low_dim_data.csv")
+        # expression_data.T.to_csv(f"{save_root}/expression_matrix.csv")
+        cell_metadata.to_csv(f"{save_root}/cell_metadata.csv")
+        
+        umap_coords = adata.obsm["X_umap"]
+        spot_ids = adata.obs_names
+        umap_df = pd.DataFrame(umap_coords, columns=["UMAP1", "UMAP2"])
+        umap_df["spot_id"] = spot_ids
+        umap_df = umap_df[["spot_id", "UMAP1", "UMAP2"]]
+        umap_df.to_csv(os.path.join(save_root, "spatial_umap_coords.csv"), index=False)
         print('Done', data_name)
 
 if __name__ == '__main__':
