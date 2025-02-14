@@ -4,8 +4,12 @@ from pathlib import Path
 import scanpy as sc
 import pandas as pd
 
-from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, \
-                            homogeneity_completeness_v_measure
+import time
+import psutil
+import tracemalloc
+
+# from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, \
+#                             homogeneity_completeness_v_measure
 from sklearn.preprocessing import LabelEncoder
 
 import sys
@@ -15,29 +19,32 @@ from DeepST import run
 import warnings
 warnings.filterwarnings('ignore')
 
-def calculate_clustering_matrix(pred, gt, sample):
-    cols = ['Sample', 'Score', "Metric"]
-    df = pd.DataFrame(columns=cols)
+sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/utils')
+from sdmbench import compute_ARI, compute_NMI, compute_CHAOS, compute_PAS, compute_ASW, compute_HOM, compute_COM
+
+
+def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_used: float, output_dir: str) -> dict:
+    """Evaluate clustering using sdmbench"""
+    gt_key = 'ground_truth'
+    pred_key = 'domain'
+    adata.obs['ground_truth'] = df_meta['layer_guess'].values
+    adata = adata[~pd.isnull(adata.obs['ground_truth'])]
     
-    pca_ari = adjusted_rand_score(pred, gt)
-    df = df.append(pd.Series([sample, pca_ari, "ARI"],
-                             index=cols), ignore_index=True)
+    results = {
+        "ARI": compute_ARI(adata, gt_key, pred_key),
+        "AMI": compute_NMI(adata, gt_key, pred_key),
+        "Homogeneity": compute_HOM(adata, gt_key, pred_key),
+        "Completeness": compute_COM(adata, gt_key, pred_key),
+        "ASW": compute_ASW(adata, pred_key),
+        "CHAOS": compute_CHAOS(adata, pred_key),
+        "PAS": compute_PAS(adata, pred_key),
+        "Time": time_taken,
+        "Memory": memory_used
+    }
     
-    pca_ami = adjusted_mutual_info_score(pred, gt)
-    df = df.append(pd.Series([sample, pca_ami, "AMI"],
-                             index=cols), ignore_index=True)
-    
-    pca_hcv = homogeneity_completeness_v_measure(gt, pred)
-    df = df.append(pd.Series([sample, pca_hcv[0], "Homogeneity"],
-                             index=cols), ignore_index=True)
-    
-    df = df.append(pd.Series([sample, pca_hcv[1], "Completeness"],
-                             index=cols), ignore_index=True)
-    
-    df = df.append(pd.Series([sample, pca_hcv[2], "V_measure"],
-                            index=cols), ignore_index=True)
-    
-    return df
+    df_results = pd.DataFrame([results])
+    df_results.to_csv(os.path.join(output_dir, "metrics.csv"), index=False)
+    return results
     
 
 def main():
@@ -58,6 +65,10 @@ def main():
         save_root = Path(f'/home/lytq/Spatial-Transcriptomics-Benchmark/RESULTS/DLPFC/DeepST/{data_name}')
         os.makedirs(save_root, exist_ok=True)
 
+        start_time = time.time()
+        tracemalloc.start()
+        
+        
         print('Processing', data_name, '...')
         n_domains = 5 if data_name in ['151669','151670','151671','151672'] else 7 ###### the number of spatial domains.
         # n_domains = sys.argv[2]
@@ -107,9 +118,25 @@ def main():
         adata = deepen._get_cluster_data(adata, n_domains=n_domains, priori = True)
         # print(adata)
 
+        ###### Calculate the time and memory used
+        time_taken = time.time() - start_time
+        size, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        memory_used = peak / (1024 ** 2) # MB
+        
+        ####### Calculate clustering metrics
+        # obs_df = adata.obs.dropna()
+        clustering_results = evaluate_clustering(adata, gt_df, time_taken, memory_used, save_root)
+        clustering_results.to_csv(save_root / 'metrics.csv', index=False)
+        
+
         ###### Spatial localization map of the spatial domain
         plt.figure(figsize=(6, 6))
-        sc.pl.spatial(adata, color='DeepST_refine_domain', frameon = False, spot_size=150, title='DeepST')
+        sc.pl.spatial(adata, 
+                      color='DeepST_refine_domain', 
+                      frameon = False, 
+                      spot_size=150,
+                      title=f'DeepST (ARI = {clustering_results["ARI"]:.4f})',)
         handles, labels = ax.get_legend_handles_labels()
         new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
         ax.legend(handles, new_labels, loc='center left', bbox_to_anchor=(1.05, 0.5), frameon=False) 
@@ -124,11 +151,6 @@ def main():
         # df_PC.to_csv(save_root / 'PCs.tsv', sep='\t')
         # adata.obs.to_csv( save_root / 'metadata.tsv', sep='\t')
 
-        ####### Calculate clustering metrics
-        obs_df = adata.obs.dropna()
-        clustering_results = calculate_clustering_matrix(obs_df['DeepST'], obs_df['Ground Truth'], data_name)
-        clustering_results.to_csv(save_root / 'metrics.csv', index=False)
-        
         ###### UMAP visualization
         sc.pp.neighbors(adata, use_rep='DeepST_embed', n_neighbors=10)
         sc.tl.umap(adata)
@@ -139,6 +161,10 @@ def main():
         axes[0].set_title('Manual Annotation')
         axes[1].set_title('DeepST')
 
+        handles, labels = axes[1].get_legend_handles_labels()
+        new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
+        axes[1].legend(handles, new_labels, loc='best', frameon=False)
+        
         for ax in axes:
             ax.set_aspect(1)
 
