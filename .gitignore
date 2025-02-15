@@ -7,6 +7,7 @@ RESULTS
 # C extensions
 *.so
 .DS_Store
+result*
 # Distribution / packaging
 .Python
 build/
