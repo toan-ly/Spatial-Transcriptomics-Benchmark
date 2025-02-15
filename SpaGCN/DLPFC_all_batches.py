@@ -20,8 +20,8 @@ import tracemalloc
 def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_used: float, output_dir: str) -> dict:
     """Evaluate clustering using sdmbench"""
     gt_key = 'ground_truth'
-    pred_key = 'X_pca_kmeans'
-    adata.obs['ground_truth'] = df_meta['ground_truth_le'].values
+    pred_key = 'refined_pred'
+    adata.obs['ground_truth'] = df_meta['layer_guess'].values
     adata = adata[~pd.isnull(adata.obs['ground_truth'])]
     
     results = {
@@ -41,15 +41,17 @@ def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_us
     return results
 
 BASE_PATH = Path('/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC')
-output_path = Path('/home/lytq/Spatial-Transcriptomics-Benchmark/RESULTS/DLPFC/SpaGCN')
+output_path = Path('/home/lytq/Spatial-Transcriptomics-Benchmark/results2/DLPFC/SpaGCN')
 
-# sample_list = ['151507', '151508', '151509', '151510', 
-#                 '151669', '151670', '151671', '151672', 
-#                 '151673', '151674', '151675', '151676']
-sample_list = ['151673']
+sample_list = ['151507', '151508', '151509', '151510', 
+                '151669', '151670', '151671', '151672', 
+                '151673', '151674', '151675', '151676']
+# sample_list = ['151673']
 
 ARI_list = []
 for sample_name in sample_list:
+    print(f"================ Start Processing {sample_name} ======================")
+
     dir_input = Path(f'{BASE_PATH}/{sample_name}/')
     dir_output = Path(f'{output_path}/{sample_name}/')
     dir_output.mkdir(parents=True, exist_ok=True)
@@ -58,8 +60,12 @@ for sample_name in sample_list:
         n_clusters = 5
     else:
         n_clusters = 7
+        
+    time_start = time.time()
+    tracemalloc.start()
+    
     ##### read data
-    adata = sc.read_10x_h5(f'{dir_input}/filtered_feature_bc_matrix.h5')
+    adata = sc.read_visium(dir_input)
     adata.var_names_make_unique()
 
     spatial=pd.read_csv(f"{dir_input}/spatial/tissue_positions_list.csv",sep=",",header=None,na_filter=False,index_col=0)
@@ -95,13 +101,13 @@ for sample_name in sample_list:
         y=y_pixel[i]
         img_new[int(x-20):int(x+20), int(y-20):int(y+20),:]=0
 
-    cv2.imwrite(f'{dir_output}/sample_map.jpg', img_new)
+    # cv2.imwrite(f'{dir_output}/sample_map.jpg', img_new)
 
     #Calculate adjacent matrix
     b=49
     a=1
     adj=spg.calculate_adj_matrix(x=x_pixel,y=y_pixel, x_pixel=x_pixel, y_pixel=y_pixel, image=img, beta=b, alpha=a, histology=True)
-    np.savetxt(f'{dir_output}/adj.csv', adj, delimiter=',')
+    # np.savetxt(f'{dir_output}/adj.csv', adj, delimiter=',')
 
 
     ##### Spatial domain detection using SpaGCN
@@ -137,40 +143,93 @@ for sample_name in sample_list:
     refined_pred=spg.refine(sample_id=adata.obs.index.tolist(), pred=adata.obs["pred"].tolist(), dis=adj_2d, shape="hexagon")
     adata.obs["refined_pred"]=refined_pred
     adata.obs["refined_pred"]=adata.obs["refined_pred"].astype('category')
+    
+    df_meta = pd.read_csv(dir_input / 'metadata.tsv', sep='\t')
+    adata.obs['layer_guess'] = df_meta['layer_guess']
+
+    sc.pp.neighbors(adata, n_neighbors=10)
+    sc.tl.umap(adata)
+    
+    time_taken = time.time() - time_start
+    size, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    memory_used = peak / (1024 ** 2) # MB
+    
+    clustering_results = evaluate_clustering(adata, df_meta, time_taken, memory_used, dir_output)
+    
     #Save results
     # adata.write_h5ad(f"{dir_output}/results.h5ad")
     # adata.obs.to_csv(f'{dir_output}/cell_metadata.csv')
     
     #Set colors used
     # adata=sc.read(f"{dir_output}/results.h5ad")
-    plot_color=["#F56867","#FEB915","#C798EE","#59BE86","#7495D3","#D1D1D1","#6D1A9C","#15821E","#3A84E6","#997273","#787878","#DB4C6C","#9E7A7A","#554236","#AF5F3C","#93796C","#F9BD3F","#DAB370","#877F6C","#268785"]
+    # plot_color=["#F56867","#FEB915","#C798EE","#59BE86","#7495D3","#D1D1D1","#6D1A9C","#15821E","#3A84E6","#997273","#787878","#DB4C6C","#9E7A7A","#554236","#AF5F3C","#93796C","#F9BD3F","#DAB370","#877F6C","#268785"]
     #Plot spatial domains
-    domains="pred"
-    num_celltype=len(adata.obs[domains].unique())
-    adata.uns[domains+"_colors"]=list(plot_color[:num_celltype])
-    ax=sc.pl.scatter(adata,alpha=1,x="y_pixel",y="x_pixel",color=domains,title=domains,color_map=plot_color,show=False,size=100000/adata.shape[0])
-    ax.set_aspect('equal', 'box')
-    ax.axes.invert_yaxis()
-    plt.savefig(f"{dir_output}/clustering.pdf", dpi=300, bbox_inches='tight')
-    plt.close()
-
-    #Plot refined spatial domains
-    domains="refined_pred"
-    num_celltype=len(adata.obs[domains].unique())
-    adata.uns[domains+"_colors"]=list(plot_color[:num_celltype])
-    ax=sc.pl.scatter(adata,alpha=1,x="y_pixel",y="x_pixel",color=domains,title=domains,color_map=plot_color,show=False,size=100000/adata.shape[0])
-    ax.set_aspect('equal', 'box')
-    ax.axes.invert_yaxis()
-    plt.savefig(f"{dir_output}/refined_clustering.pdf", dpi=300, bbox_inches='tight')
-    plt.close()
     
-    df_meta = pd.read_csv(f'{dir_input}/metadata.tsv', sep='\t')
-    df_meta['SpaGCN'] = adata.obs["refined_pred"].tolist()
-    df_meta.to_csv(f'{dir_output}/cell_metadata.csv', index=False)
-    df_meta = df_meta[~pd.isnull(df_meta['layer_guess'])]
-    ARI = metrics.adjusted_rand_score(df_meta['layer_guess'], df_meta['SpaGCN'])
+    # domains="pred"
+    # num_celltype=len(adata.obs[domains].unique())
+    # adata.uns[domains+"_colors"]=list(plot_color[:num_celltype])
+    # ax=sc.pl.scatter(adata,alpha=1,x="y_pixel",y="x_pixel",color=domains,title=domains,color_map=plot_color,show=False,size=100000/adata.shape[0])
+    # ax.set_aspect('equal', 'box')
+    # ax.axes.invert_yaxis()
+    # plt.savefig(f"{dir_output}/clustering.pdf", dpi=300, bbox_inches='tight')
+    # plt.close()
+
+    # #Plot refined spatial domains
+    # domains="refined_pred"
+    # num_celltype=len(adata.obs[domains].unique())
+    # adata.uns[domains+"_colors"]=list(plot_color[:num_celltype])
+    # ax=sc.pl.scatter(adata,alpha=1,x="y_pixel",y="x_pixel",color=domains,title=domains,color_map=plot_color,show=False,size=100000/adata.shape[0])
+    # ax.set_aspect('equal', 'box')
+    # ax.axes.invert_yaxis()
+    # plt.savefig(f"{dir_output}/refined_clustering.pdf", dpi=300, bbox_inches='tight')
+    # plt.close()
+    
+    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+    sc.pl.spatial(adata, color='layer_guess', ax=axes[0], show=False)
+    sc.pl.spatial(adata, color='refined_pred', ax=axes[1], spot_size=100, show=False)
+    axes[0].set_title('Manual Annotation')
+    axes[1].set_title(f'SpaGCN (ARI = {clustering_results["ARI"]:.4f})')
+    handles, labels = axes[1].get_legend_handles_labels()
+    new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
+    axes[1].legend(handles, new_labels, loc='center left', frameon=False, bbox_to_anchor=(1, 0.5))
+    plt.tight_layout()
+    for ax in axes:
+        ax.axis('off')
+    plt.savefig(f'{dir_output}/clustering.pdf', dpi=300, bbox_inches='tight')
+    
+    
+    fig, axes = plt.subplots(1,2,figsize=(4*2, 3))
+    sc.pl.umap(adata, color='layer_guess', ax=axes[0], show=False)
+    sc.pl.umap(adata, color='refined_pred', ax=axes[1], show=False)
+    axes[0].set_title('Manual Annotation')
+    axes[1].set_title('SpaGCN')
+
+    handles, labels = axes[1].get_legend_handles_labels()
+    new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
+    axes[1].legend(handles, new_labels, loc='center left', frameon=False, bbox_to_anchor=(1, 0.5))
+
+    for ax in axes:
+        ax.set_aspect(1)
+
+    plt.tight_layout()
+    plt.savefig(f'{dir_output}/umap.pdf', dpi=300, bbox_inches='tight')
+    
+    low_dim_data = pd.DataFrame(adata.obsm['X_pca'], index=adata.obs.index)
+    cell_metadata = adata.obs
+    low_dim_data.to_csv(f"{dir_output}/low_dim_data.csv", index=False)
+    cell_metadata.to_csv(f"{dir_output}/cell_metadata.csv", index=False)
+    
+    umap_coords = adata.obsm["X_umap"]
+    spot_ids = adata.obs_names
+    umap_df = pd.DataFrame(umap_coords, columns=["UMAP1", "UMAP2"])
+    umap_df["spot_id"] = spot_ids
+    umap_df = umap_df[["spot_id", "UMAP1", "UMAP2"]]
+    umap_df.to_csv(os.path.join(dir_output, "spatial_umap_coords.csv"), index=False)
+    
+    # df_meta = df_meta[~pd.isnull(df_meta['layer_guess'])]
+    ARI = clustering_results['ARI']
     print('===== Project: {} ARI score: {:.3f}'.format(sample_name, ARI))
-    ARI_list.append(ARI)
 
 print('===== Project: AVG ARI score: {:.3f}'.format(np.mean(ARI_list)))
 
