@@ -20,8 +20,8 @@ import psutil
 import tracemalloc
 
 BASE_PATH = Path('/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC')
-sample_list = [#'151507', '151508', '151509', '151510', 
-               # '151669', '151670', '151671','151672', 
+sample_list = ['151507', '151508', '151509', '151510', 
+                '151669', '151670', '151671','151672', 
                 '151673', '151674', '151675', '151676']
 
 def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_used: float, output_dir: str) -> dict:
