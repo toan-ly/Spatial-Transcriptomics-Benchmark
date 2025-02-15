@@ -9,7 +9,36 @@ from sklearn import metrics
 import cv2
 import matplotlib.pyplot as plt
 from pathlib import Path
+import sys
+sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/utils')
+from sdmbench import compute_ARI, compute_NMI, compute_CHAOS, compute_PAS, compute_ASW, compute_HOM, compute_COM
 
+import time
+import psutil
+import tracemalloc
+
+def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_used: float, output_dir: str) -> dict:
+    """Evaluate clustering using sdmbench"""
+    gt_key = 'ground_truth'
+    pred_key = 'X_pca_kmeans'
+    adata.obs['ground_truth'] = df_meta['ground_truth_le'].values
+    adata = adata[~pd.isnull(adata.obs['ground_truth'])]
+    
+    results = {
+        "ARI": compute_ARI(adata, gt_key, pred_key),
+        "AMI": compute_NMI(adata, gt_key, pred_key),
+        "Homogeneity": compute_HOM(adata, gt_key, pred_key),
+        "Completeness": compute_COM(adata, gt_key, pred_key),
+        "ASW": compute_ASW(adata, pred_key),
+        "CHAOS": compute_CHAOS(adata, pred_key),
+        "PAS": compute_PAS(adata, pred_key),
+        "Time": time_taken,
+        "Memory": memory_used
+    }
+    
+    df_results = pd.DataFrame([results])
+    df_results.to_csv(os.path.join(output_dir, "metrics.csv"), index=False)
+    return results
 
 BASE_PATH = Path('/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC')
 output_path = Path('/home/lytq/Spatial-Transcriptomics-Benchmark/RESULTS/DLPFC/SpaGCN')
