@@ -13,8 +13,9 @@ import STAGATE_pyG as STAGATE
 
 import time
 import tracemalloc
-from utils.evaluate import evaluate_clustering
-
+import sys
+sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/utils')
+from evaluate import evaluate_clustering
     
 def main():
     # the location of R (used for the mclust clustering)
@@ -22,15 +23,15 @@ def main():
     os.environ['R_USER'] = '/.conda/envs/stagate/lib/python3.10/site-packages/rpy2'
 
     data_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC'
-    output_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/Results/results3/STAGATE'
+    output_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/Results/results3/DLPFC/STAGATE'
     data_names = os.listdir(data_path)
     data_names = [i for i in data_names if i.isdigit()]
     
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     for section_id in data_names:
         # Already processed the remaining
-        # if section_id != '151673':
-        #     continue
+        if section_id != '151673':
+            continue
         
         print(f'Processing {section_id}...')
         n_clusters = 5 if section_id in ['151669','151670','151671','151672'] else 7 
@@ -81,7 +82,7 @@ def main():
         memory_used = peak / (1024 ** 2)
         tracemalloc.stop()
         
-        clustering_results = evaluate_clustering(adata, Ann_df, time_taken, memory_used, dir_out)
+        clustering_results = evaluate_clustering(adata, Ann_df, time_taken, memory_used, dir_out, pred_key='mclust')
         ARI = clustering_results["ARI"]
         print('Adjusted rand index = %.2f' %ARI)
 
@@ -104,6 +105,7 @@ def main():
         sc.pl.spatial(adata, 
                       color=["mclust"], 
                       title=['STAGATE (ARI=%.4f)'%ARI])
+        plt.axis('off')
         plt.savefig(os.path.join(dir_out, 'clustering.pdf'), bbox_inches='tight', dpi=300)
 
         ## Save results

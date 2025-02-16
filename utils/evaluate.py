@@ -9,9 +9,9 @@ def evaluate_clustering(
     time_taken: float, 
     memory_used: float, 
     output_dir: str = None,
-    gt_key='ground_truth', 
-    pred_key='pred', 
-    gt_df_key='layer_guess',
+    gt_key: str ='ground_truth', 
+    pred_key: str ='pred', 
+    gt_df_key: str ='layer_guess',
 ) -> dict:
     
     """Evaluate clustering using sdmbench"""
