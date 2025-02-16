@@ -26,7 +26,7 @@ def plot_clustering(adata, colors, savepath = None):
         fig.savefig(savepath, bbox_inches='tight')
 
 
-def res_search_fixed_clus(adata, fixed_clus_count, increment=0.02):
+def res_search_fixed_clus(adata, fixed_clus_count, increment=0.02, start=0.1, end=1.0):
     '''
         arg1(adata)[AnnData matrix]
         arg2(fixed_clus_count)[int]
@@ -34,7 +34,7 @@ def res_search_fixed_clus(adata, fixed_clus_count, increment=0.02):
         return:
             resolution[int]
     '''
-    for res in sorted(list(np.arange(0.01, 2.5, increment)), reverse=True):
+    for res in sorted(list(np.arange(start, end, increment)), reverse=True):
         sc.tl.leiden(adata, random_state=0, resolution=res)
         count_unique_leiden = len(pd.DataFrame(adata.obs['leiden']).leiden.unique())
         if count_unique_leiden == fixed_clus_count:

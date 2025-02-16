@@ -149,7 +149,7 @@ for sample in sample_list:
 
     # methods_ = "stSME_disk"
     # results_df = calculate_clustering_matrix(data_.obs["X_pca_kmeans"], ground_truth_le, sample, methods_)
-    data_.obs.to_csv(OUTPUT_PATH / 'cell_metadata.csv', index=False)
+    data_.obs.to_csv(OUTPUT_PATH / 'cell_metadata.csv')
     df_PCA = pd.DataFrame(data = data_.obsm['X_pca'], index = data_.obs.index)
     df_PCA.to_csv(OUTPUT_PATH / 'low_dim_data.csv', index=False)
 
