@@ -7,45 +7,26 @@ import scanpy as sc
 import matplotlib.pyplot as plt
 import os
 
-from sklearn.metrics.cluster import adjusted_rand_score, adjusted_mutual_info_score, homogeneity_completeness_v_measure
 import torch
 
 import STAGATE_pyG as STAGATE
 
-def calculate_clustering_matrix(pred, gt, sample):
-    cols = ['Sample', 'Score', "Metric"]
-    df = pd.DataFrame(columns=cols)
-    
-    pca_ari = adjusted_rand_score(pred, gt)
-    df = df._append(pd.Series([sample, pca_ari, "ARI"],
-                             index=cols), ignore_index=True)
-    
-    pca_ami = adjusted_mutual_info_score(pred, gt)
-    df = df._append(pd.Series([sample, pca_ami, "AMI"],
-                             index=cols), ignore_index=True)
-    
-    pca_hcv = homogeneity_completeness_v_measure(gt, pred)
-    df = df._append(pd.Series([sample, pca_hcv[0], "Homogeneity"],
-                             index=cols), ignore_index=True)
-    
-    df = df._append(pd.Series([sample, pca_hcv[1], "Completeness"],
-                             index=cols), ignore_index=True)
-    
-    df = df._append(pd.Series([sample, pca_hcv[2], "V_measure"],
-                            index=cols), ignore_index=True)
-    
-    return df
+import time
+import tracemalloc
+from utils.evaluate import evaluate_clustering
+
     
 def main():
     # the location of R (used for the mclust clustering)
     os.environ['R_HOME'] = '/home/lytq/.conda/envs/stagate/lib/R'
     os.environ['R_USER'] = '/.conda/envs/stagate/lib/python3.10/site-packages/rpy2'
 
-    data_path = '/home/lytq/STAGATE/data/DLPFC_new'
+    data_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC'
+    output_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/Results/results3/STAGATE'
     data_names = os.listdir(data_path)
     data_names = [i for i in data_names if i.isdigit()]
     
-    device = torch.device('cuda:5' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     for section_id in data_names:
         # Already processed the remaining
         # if section_id != '151673':
@@ -54,8 +35,11 @@ def main():
         print(f'Processing {section_id}...')
         n_clusters = 5 if section_id in ['151669','151670','151671','151672'] else 7 
 
-        dir_out = f'/home/lytq/STAGATE/results/DLPFC/{section_id}'
+        dir_out = f'{output_path}/{section_id}'
         os.makedirs(dir_out, exist_ok=True)
+
+        time_start = time.time()
+        tracemalloc.start()
 
         # Load data
         input_dir = os.path.join(data_path, section_id)
@@ -91,9 +75,14 @@ def main():
 
         ## Calculate clustering metrics
         obs_df = adata.obs.dropna()
-        clustering_results = calculate_clustering_matrix(obs_df['mclust'], obs_df['Ground Truth'], section_id)
-        clustering_results.to_csv(f'{dir_out}/clustering_results.tsv', sep='\t', index=False)
-        ARI = clustering_results[clustering_results['Metric']=='ARI']['Score'].values[0]
+        
+        time_taken = time.time() - time_start
+        current, peak = tracemalloc.get_traced_memory()
+        memory_used = peak / (1024 ** 2)
+        tracemalloc.stop()
+        
+        clustering_results = evaluate_clustering(adata, Ann_df, time_taken, memory_used, dir_out)
+        ARI = clustering_results["ARI"]
         print('Adjusted rand index = %.2f' %ARI)
 
         ## Save UMAP
@@ -103,20 +92,19 @@ def main():
         fig, axes = plt.subplots(1, 2, figsize=(8, 3))
         sc.pl.umap(adata, color='Ground Truth', ax=axes[0], show=False)
         sc.pl.umap(adata, color='mclust', ax=axes[1], show=False)
-        axes[0].set_title('Ground Truth')
-        axes[1].set_title(f'STAGATE (ARI={ARI:.2f})')
-
+        axes[0].set_title('Manual Annotation')
+        axes[1].set_title(f'STAGATE')
         for ax in axes:
             ax.set_aspect(1)
-
         plt.tight_layout()
-        plt.savefig(os.path.join(dir_out, 'umap.png'), dpi=300)
-        # plt.close()
+        plt.savefig(os.path.join(dir_out, 'umap.pdf'), dpi=300, bbox_inches='tight')
         
-
-        plt.rcParams["figure.figsize"] = (4, 3)
-        sc.pl.spatial(adata, color=["Ground Truth", "mclust"], title=['Ground Truth', 'STAGATE (ARI=%.2f)'%ARI])
-        plt.savefig(os.path.join(dir_out, 'spatial_clustering.png'), bbox_inches='tight', dpi=300)
+        # Plot spatial clustering
+        plt.rcParams["figure.figsize"] = (6, 6)
+        sc.pl.spatial(adata, 
+                      color=["mclust"], 
+                      title=['STAGATE (ARI=%.4f)'%ARI])
+        plt.savefig(os.path.join(dir_out, 'clustering.pdf'), bbox_inches='tight', dpi=300)
 
         ## Save results
         adata.obs['STAGATE'] = adata.obs['mclust']
@@ -135,21 +123,20 @@ def main():
         #                 title=section_id+'_STAGATE', legend_fontoutline=2, show=False)
         # plt.savefig(os.path.join(dir_out, f'{section_id}_trajectory.png'), bbox_inches='tight', dpi=300)        
 
-        if section_id == '151673':
-            low_dim_data = pd.DataFrame(adata.obsm['STAGATE'], index=adata.obs.index)
-            expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
-            cell_metadata = adata.obs
+        low_dim_data = pd.DataFrame(adata.obsm['STAGATE'], index=adata.obs.index)
+        # expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
+        cell_metadata = adata.obs
 
-            low_dim_data.to_csv(f"{dir_out}/low_dim_data.csv")
-            expression_data.T.to_csv(f"{dir_out}/expression_matrix.csv")
-            cell_metadata.to_csv(f"{dir_out}/cell_metadata.csv")
-            
-            umap_coords = adata.obsm["X_umap"]
-            spot_ids = adata.obs_names
-            umap_df = pd.DataFrame(umap_coords, columns=["UMAP1", "UMAP2"])
-            umap_df["spot_id"] = spot_ids
-            umap_df = umap_df[["spot_id", "UMAP1", "UMAP2"]]
-            umap_df.to_csv(os.path.join(dir_out, "spatial_umap_coords.csv"), index=False)
+        low_dim_data.to_csv(f"{dir_out}/low_dim_data.csv")
+        # expression_data.T.to_csv(f"{dir_out}/expression_matrix.csv")
+        cell_metadata.to_csv(f"{dir_out}/cell_metadata.csv")
+        
+        umap_coords = adata.obsm["X_umap"]
+        spot_ids = adata.obs_names
+        umap_df = pd.DataFrame(umap_coords, columns=["UMAP1", "UMAP2"])
+        umap_df["spot_id"] = spot_ids
+        umap_df = umap_df[["spot_id", "UMAP1", "UMAP2"]]
+        umap_df.to_csv(os.path.join(dir_out, "spatial_umap_coords.csv"), index=False)
 
 
 
