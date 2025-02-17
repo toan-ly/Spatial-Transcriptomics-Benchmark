@@ -33,4 +33,4 @@ def evaluate_clustering(
     df_results = pd.DataFrame([results])
     if output_dir:
         df_results.to_csv(os.path.join(output_dir, "metrics.csv"), index=False)
-    return df_results
+    return results
