@@ -202,7 +202,7 @@ save_results <- function(sp_data, metrics_df, pca_data, dir.output) {
   umap_plot <- ggplot(umap_coords, aes(x = UMAP_1, y = UMAP_2, color = as.factor(sp_data@meta.data$cluster))) +
     geom_point(size = 1.5, alpha = 0.8) +
     scale_color_brewer(palette = "Set1") +
-    labs(title = "BayesSpace", x = "UMAP 1", y = "UMAP 2", color = 'Cluster') +
+    labs(title = "PRECAST", x = "UMAP 1", y = "UMAP 2", color = 'Cluster') +
     theme(plot.title = element_text(hjust = 0.5, size = 16),
         panel.grid = element_blank(),
         panel.background = element_blank(),
@@ -244,9 +244,10 @@ run_sample <- function(input_path, sample.name, cluster.number) {
 
         seuInt <- AddUMAP(seuInt, n_comp=2)
 
-        gt <- sp_data@meta.data$layer_guess
-        pred <- resList$cluster[[1]]
-        pca_data <- resList$hZ[[1]]        
+        gt <- seuInt@meta.data$layer_guess
+        pred <- PRECASTObj@resList$cluster[[1]]
+        pca_data <- PRECASTObj@resList$hZ[[1]]     
+          
         metrics <- calculate_metrics(gt, pred, pca_data)
 
     }, iterations = 1L)
