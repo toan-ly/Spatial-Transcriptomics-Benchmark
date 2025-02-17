@@ -128,11 +128,6 @@ save_results <- function(sp_data, metrics_df, dir.output) {
             file = file.path(dir.output, "spatial_umap_coords.csv"),
             row.names = FALSE)
   
-  # Save expression matrix
-  # expression_data <- as.data.frame(as.matrix(GetAssayData(sp_data, assay = "Spatial", slot = "counts")))
-  # write.csv(t(expression_data), 
-  #           file = file.path(dir.output, "expression_matrix.csv"),
-  #           row.names = TRUE)
 }
 
 data_path <- file.path("/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/DLPFC_new")
