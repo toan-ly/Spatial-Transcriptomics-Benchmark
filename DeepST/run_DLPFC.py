@@ -5,12 +5,8 @@ import scanpy as sc
 import pandas as pd
 
 import time
-import psutil
 import tracemalloc
 
-# from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, \
-#                             homogeneity_completeness_v_measure
-from sklearn.preprocessing import LabelEncoder
 
 import sys
 sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/DeepST/DeepST-main/deepst')
@@ -20,31 +16,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/utils')
-from sdmbench import compute_ARI, compute_NMI, compute_CHAOS, compute_PAS, compute_ASW, compute_HOM, compute_COM
-
-
-def evaluate_clustering(adata: sc.AnnData, df_meta, time_taken: float, memory_used: float, output_dir: str) -> dict:
-    """Evaluate clustering using sdmbench"""
-    gt_key = 'ground_truth'
-    pred_key = 'DeepST_refine_domain'
-    adata.obs['ground_truth'] = df_meta['layer_guess'].values
-    adata = adata[~pd.isnull(adata.obs['ground_truth'])]
-    
-    results = {
-        "ARI": compute_ARI(adata, gt_key, pred_key),
-        "AMI": compute_NMI(adata, gt_key, pred_key),
-        "Homogeneity": compute_HOM(adata, gt_key, pred_key),
-        "Completeness": compute_COM(adata, gt_key, pred_key),
-        "ASW": compute_ASW(adata, pred_key),
-        "CHAOS": compute_CHAOS(adata, pred_key),
-        "PAS": compute_PAS(adata, pred_key),
-        "Time": time_taken,
-        "Memory": memory_used
-    }
-    
-    df_results = pd.DataFrame([results])
-    df_results.to_csv(os.path.join(output_dir, "metrics.csv"), index=False)
-    return results
+from evaluate import evaluate_clustering
     
 
 def main():
@@ -54,15 +26,8 @@ def main():
     data_names = os.listdir(data_path)
     data_names = [i for i in data_names if i.isdigit()]
 
-
     for data_name in data_names:
-        # if data_name != '151673': # Best one currently
-        #     continue
-
-        if data_name in ['151669', '151673', '151671', '151675']: # Finished
-            continue
-        
-        save_root = Path(f'/home/lytq/Spatial-Transcriptomics-Benchmark/RESULTS/DLPFC/DeepST/{data_name}')
+        save_root = Path(f'/home/lytq/Spatial-Transcriptomics-Benchmark/Results/results3/DLPFC/DeepST/{data_name}')
         os.makedirs(save_root, exist_ok=True)
 
         start_time = time.time()
@@ -84,16 +49,16 @@ def main():
         adata = deepen._get_adata(platform="Visium", data_path=data_path, data_name=data_name)
 
         gt_df = pd.read_csv(data_path + '/' + data_name + '/metadata.tsv', sep='\t')
-        adata.obs['Ground Truth'] = gt_df.loc[adata.obs_names, 'layer_guess']
+        adata.obs['layer_guess'] = gt_df.loc[adata.obs_names, 'layer_guess']
         adata.layers['count'] = adata.X.toarray()
 
         ###### Segment the Morphological Image
-        adata = deepen._get_image_crop(adata, data_name=data_name)
+        # adata = deepen._get_image_crop(adata, data_name=data_name)
 
         ###### Data augmentation. spatial_type includes three kinds of "KDTree", "BallTree" and "LinearRegress", among which "LinearRegress"
         ###### is only applicable to 10x visium and the remaining omics selects the other two.
         ###### "use_morphological" defines whether to use morphological images.
-        adata = deepen._get_augment(adata, spatial_type="LinearRegress", use_morphological=True)
+        adata = deepen._get_augment(adata, spatial_type="KDTree", use_morphological=False)
 
         ###### Build graphs. "distType" includes "KDTree", "BallTree", "kneighbors_graph", "Radius", etc., see adj.py
         graph_dict = deepen._get_graph(adata.obsm["spatial"], distType = "BallTree")
@@ -107,9 +72,9 @@ def main():
             graph_dict = graph_dict,
         )
         
-        print(f'Finished training {data_name}, deleting Image_crop folder...')
+        # print(f'Finished training {data_name}, deleting Image_crop folder...')
         # Remove Image_crop folder after training
-        os.system(f'rm -r {save_root}/Image_crop')
+        os.system(f'rm -r {save_root}/Data')
 
         ###### DeepST outputs
         adata.obsm["DeepST_embed"] = deepst_embed
@@ -126,26 +91,20 @@ def main():
         
         ####### Calculate clustering metrics
         # obs_df = adata.obs.dropna()
-        clustering_results = evaluate_clustering(adata, gt_df, time_taken, memory_used, save_root)
-        clustering_results.to_csv(save_root / 'metrics.csv', index=False)
+        clustering_results = evaluate_clustering(adata, gt_df, time_taken, memory_used, save_root,
+                                                 pred_key='DeepST_refine_domain')
+        print(f'ARI: {clustering_results["ARI"]:.4f}')
         
+        adata.obs['DeepST_shift'] = (adata.obs['DeepST_refine_domain'].astype(int) + 1).astype(str) 
 
         ###### Spatial localization map of the spatial domain
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))        
-        sc.pl.spatial(adata, 
-                      color='DeepST_refine_domain', 
-                      frameon = False, 
-                      spot_size=150,
-                      title=f'DeepST (ARI = {clustering_results["ARI"]:.4f})',
-                      ax=ax)
-        handles, labels = ax.get_legend_handles_labels()
-        new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
-        ax.legend(handles, new_labels, loc='center left', bbox_to_anchor=(1.05, 0.5), frameon=False) 
-        
+        sc.pl.spatial(adata, color='DeepST_shift', ax=ax, show=False)
+        ax.set_title(f'DeepST (ARI={clustering_results["ARI"]:.4f})')
+        ax.axis('off')
+        plt.tight_layout()
         plt.savefig(os.path.join(save_root, f'clustering.pdf'), bbox_inches='tight', dpi=300)
 
-
-        adata.obs['DeepST'] = adata.obs['DeepST_refine_domain']
 
         # adata.write(save_root / 'result.h5ad')
         # df_PC = pd.DataFrame(data=adata.obsm['DeepST_embed'], index=adata.obs.index)
@@ -157,29 +116,24 @@ def main():
         sc.tl.umap(adata)
 
         fig, axes = plt.subplots(1,2,figsize=(4*2, 3))
-        sc.pl.umap(adata, color='Ground Truth', ax=axes[0], show=False)
-        sc.pl.umap(adata, color='DeepST_refine_domain', ax=axes[1], show=False)
+        sc.pl.umap(adata, color='layer_guess', ax=axes[0], show=False)
+        sc.pl.umap(adata, color='DeepST_shift', ax=axes[1], show=False)
         axes[0].set_title('Manual Annotation')
         axes[1].set_title('DeepST')
 
-        handles, labels = axes[1].get_legend_handles_labels()
-        new_labels = [str(int(label) + 1) if label.isdigit() else label for label in labels]
-        axes[1].legend(handles, new_labels, loc='center left', frameon=False, bbox_to_anchor=(1, 0.5))
-        
         for ax in axes:
             ax.set_aspect(1)
-
         plt.tight_layout()
         plt.savefig(os.path.join(save_root, f'umap.pdf'), bbox_inches='tight', dpi=300)
         
         
-        low_dim_data = pd.DataFrame(adata.obsm['image_feat'], index=adata.obs.index)
+        low_dim_data = pd.DataFrame(adata.obsm['DeepST_embed'], index=adata.obs.index)
         # expression_data = pd.DataFrame(adata.layers['count'], index=adata.obs.index, columns=adata.var.index)
         cell_metadata = adata.obs
 
-        low_dim_data.to_csv(f"{save_root}/low_dim_data.csv", index=False)
+        low_dim_data.to_csv(f"{save_root}/low_dim_data.csv")
         # expression_data.T.to_csv(f"{save_root}/expression_matrix.csv")
-        cell_metadata.to_csv(f"{save_root}/cell_metadata.csv", index=False)
+        cell_metadata.to_csv(f"{save_root}/cell_metadata.csv")
         
         umap_coords = adata.obsm["X_umap"]
         spot_ids = adata.obs_names
