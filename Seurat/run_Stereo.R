@@ -11,8 +11,8 @@ library(SingleCellExperiment)
 n_domains <- 7
 
 # Define input and output directories
-data_path <- "Spatial-Transcriptomics-Benchmark/data/Mouse_Olfactory_Bulb/"
-save_path <- "Spatial-Transcriptomics-Benchmark/results3/Mouse_Olfactory_Bulb/Seurat/"
+data_path <- "data/Mouse_Olfactory_Bulb/"
+save_path <- "results4/Mouse_Olfactory_Bulb/Seurat/"
 if (!dir.exists(save_path)) {
   dir.create(save_path, recursive = TRUE)
 }
@@ -31,7 +31,7 @@ if (!dir.exists(save_path)) {
 # Load the converted file into Seurat
 # sp_data <- LoadH5Seurat(h5seurat_file)
 
-counts <- read.csv(file.path(data_path, "RNA_counts.tsv"), sep = "\t", row.names = 1)
+counts <- read.csv(file.path(data_path, "RNA_counts.tsv.gz"), sep = "\t", row.names = 1)
 position <- read.csv(file.path(data_path, "position.tsv"), sep = "\t")
 used_barcodes <- read.csv(file.path(data_path, "used_barcodes.txt"), sep = "\t", header = FALSE, stringsAsFactors = FALSE)
 colnames(counts) <- gsub("^X", "Spot_", colnames(counts))
@@ -44,18 +44,17 @@ if (all(used_barcodes$V1 %in% colnames(counts))) {
   stop("Missing barcodes in counts")
 }
 
-counts <- counts[, used_barcodes$V1, drop = FALSE]
-position <- position[used_barcodes$V1, ]
+counts_filtered <- counts[, used_barcodes$V1, drop = FALSE]
+position_filtered <- position[used_barcodes$V1, ]
 # counts[is.na(counts)] <- 0
 
+sp_data <- CreateSeuratObject(counts = counts_filtered, assay = "Spatial")
+sp_data <- AddMetaData(sp_data, metadata = position_filtered, col.name = c("x", "y"))
 
-sp_data <- CreateSeuratObject(counts = counts, assay = "Spatial")
-sp_data <- AddMetaData(sp_data, metadata = position, col.name = c("x", "y"))
-
-sp_data <- subset(sp_data, nCount_Spatial > 0)
+# sp_data <- subset(sp_data, nCount_Spatial > 0)
 # Data normalization using SCTransform
 cat("Running SCTransform...\n")
-sp_data <- SCTransform(sp_data, assay = "Spatial", verbose = FALSE)
+sp_data <- SCTransform(sp_data, assay = "Spatial", vst.flavor='v2')
 
 # Dimensionality reduction and clustering
 cat("Performing dimensionality reduction and clustering...\n")
