@@ -13,9 +13,10 @@ library(bench)   # For benchmarking execution time
 
 # Define batch-specific clustering parameters
 batch_cluster_map <- list(
-  '151669' = 5, '151670' = 5, '151671' = 5, '151672' = 5,
-  '151673' = 7, '151674' = 7, '151675' = 7, '151676' = 7,
-  '151507' = 7, '151508' = 7, '151509' = 7, '151510' = 7
+  # '151669' = 5, '151670' = 5, '151671' = 5, '151672' = 5,
+  # '151673' = 7, '151674' = 7, '151675' = 7, 
+  '151676' = 7
+  # '151507' = 7, '151508' = 7, '151509' = 7, '151510' = 7
 )
 
 #' Calculate clustering evaluation metrics
@@ -173,7 +174,7 @@ for (sample.name in names(batch_cluster_map)) {
 
     # Find optimal resolution for clustering
     sp_data <- tryCatch({
-      for (resolution in seq(0.5, 0.3, by = -0.01)) {
+      for (resolution in seq(1, 0.1, by = -0.01)) {
         sp_data <- FindClusters(sp_data, verbose = FALSE, resolution = resolution)
         if (length(levels(sp_data@meta.data$seurat_clusters)) == n_clusters) {
           cat("Optimal resolution found for batch", sample.name, ": ", resolution, "\n")
