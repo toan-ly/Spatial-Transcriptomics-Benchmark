@@ -84,16 +84,10 @@ calculate_metrics <- function(ground_truth, clusters, data_matrix) {
 }
 
 load_dataset <- function(input_path, sample.name, cluster.number) {
-    output_path <- '/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/results3/DLPFC/PRECAST'
     dir.input <- file.path(input_path, sample.name)
-    dir.output <- file.path(output_path, sample.name, '/')
     meta.input <- file.path(input_path, sample.name, 'gt')
 
     layer.input <- file.path(input_path, sample.name, 'gt/layered')
-
-    if(!dir.exists(file.path(dir.output))){
-        dir.create(file.path(dir.output), recursive = TRUE)
-    }
 
     filename <- paste0(sample.name, "_filtered_feature_bc_matrix.h5")
     sp_data <- Load10X_Spatial(dir.input, filename = filename)
