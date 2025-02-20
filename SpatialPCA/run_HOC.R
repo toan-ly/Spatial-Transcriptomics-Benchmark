@@ -2,9 +2,8 @@ library(SpatialPCA)
 library(ggplot2)
 library(Matrix)
 library(Seurat)
-options(future.globals.maxSize = 800 * 1024^2)  # Increase to 800 MiB
 
-input_path <- "/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/Human_Lymph_Node"
+input_path <- "/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/Human_Ovarian_Cancer"
 adata <- Load10X_Spatial(input_path)
 
 adata <- PercentageFeatureSet(adata, "^mt-", col.name = "percent_mito")
@@ -16,7 +15,7 @@ adata <- subset(adata, features = keep_genes)
 
 # xy_coords <- adata@images$slice1@coordinates
 xy_coords <- GetTissueCoordinates(adata)
-xy_coords <- xy_coords[c('x', 'y')]
+xy_coords <- xy_coords[c('imagerow', 'imagecol')]
 colnames(xy_coords) <- c('x_coord', 'y_coord')
 
 # count_sub <- adata@assays$Spatial@data
@@ -34,7 +33,7 @@ LIBD <- SpatialPCA_SpatialPCs(LIBD, fast=TRUE)
 highres_ST <- SpatialPCA_highresolution(LIBD, platform='ST', newlocation = NULL)
 expr_pred <- highres_ST@W %*% highres_ST@highPCs
 # Save results
-dir.output <- file.path('/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/Results/Human_Lymph_Node/SpatialPCA')
+dir.output <- file.path('/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/Results/Human_Ovarian_Cancer/SpatialPCA')
 if (!dir.exists(dir.output)) {
   dir.create(dir.output, recursive = TRUE)
 }
