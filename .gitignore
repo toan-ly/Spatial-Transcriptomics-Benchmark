@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 data
 RESULTS
+Results
 # C extensions
 *.so
 .DS_Store

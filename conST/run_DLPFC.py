@@ -128,13 +128,13 @@ def seed_torch(seed):
     torch.backends.cudnn.deterministic = True
 seed_torch(params.seed)
 
-sample_list = [#'151507', '151508', '151509', '151510', 
-               #'151669', '151670', '151671', '151672', 
-               # '151673', '151674', '151675', 
-               '151676']
+sample_list = ['151507', '151508', '151509', '151510', 
+               '151669', '151670', '151671', '151672', 
+               '151673', '151674', '151675', '151676']
+
 
 data_root = '/home/lytq/Spatial-Transcriptomics-Benchmark/data/DLPFC'
-save_root = '/home/lytq/Spatial-Transcriptomics-Benchmark/results2/DLPFC/conST'
+save_root = '/home/lytq/Spatial-Transcriptomics-Benchmark/Results/DLPFC/conST'
 
 for data_name in sample_list:
 
