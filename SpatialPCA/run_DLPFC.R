@@ -11,7 +11,7 @@ batch_cluster_map <- list(
 #   '151669' = 5, '151670' = 5, '151671' = 5, '151672' = 5,
 #   '151673' = 7, '151674' = 7, '151675' = 7, '151676' = 7,
 #   '151507' = 7, '151508' = 7, 
-#   '151509' = 7, 
+  '151509' = 7, 
   '151510' = 7
 )
 
@@ -32,7 +32,7 @@ for (sample.name in names(batch_cluster_map)) {
     LIBD = CreateSpatialPCAObject(counts=count_sub, location=xy_coords, project = "SpatialPCA",gene.type="spatial",sparkversion="sparkx",numCores_spark=5,gene.number=3000, customGenelist=NULL,min.loctions = 20, min.features=20)
     mem <- peakRAM({
         start_time <- Sys.time()
-        LIBD = SpatialPCA_buildKernel(LIBD, kerneltype="gaussian", bandwidthtype="SJ",bandwidth.set.by.user=NULL)
+        LIBD = SpatialPCA_buildKernel(LIBD, kerneltype="gaussian", bandwidthtype="SJ",bandwidth.set.by.user=NULL, sparseKernel = TRUE)
         LIBD = SpatialPCA_EstimateLoading(LIBD,fast=TRUE,SpatialPCnum=20)
         LIBD = SpatialPCA_SpatialPCs(LIBD, fast=TRUE)
 
@@ -52,7 +52,7 @@ for (sample.name in names(batch_cluster_map)) {
     T
     # Save results
     write.csv(expr_pred, file = file.path(dir.output, 'exp_mat.csv'), row.names = TRUE)
-    saveRDS(highres_ST, file = file.path(dir.output, 'resultObject.rds'))
+    # saveRDS(highres_ST, file = file.path(dir.output, 'resultObject.rds'))
     gc()
 
 }

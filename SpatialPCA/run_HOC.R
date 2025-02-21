@@ -15,8 +15,10 @@ adata <- subset(adata, features = keep_genes)
 
 # xy_coords <- adata@images$slice1@coordinates
 xy_coords <- GetTissueCoordinates(adata)
-xy_coords <- xy_coords[c('imagerow', 'imagecol')]
+y_coords <- xy_coords[, 1:2]
+# xy_coords <- xy_coords[c('imagerow', 'imagecol')]
 colnames(xy_coords) <- c('x_coord', 'y_coord')
+xy_coords <- apply(xy_coords, 2, as.numeric) 
 
 # count_sub <- adata@assays$Spatial@data
 count_sub <- GetAssayData(adata, assay = "Spatial", layer = "counts")
@@ -26,8 +28,8 @@ rownames(xy_coords) <- colnames(count_sub)
 LIBD <- CreateSpatialPCAObject(counts=count_sub, location=xy_coords, project="SpatialPCA", gene.type="spatial",
                                sparkversion="spark", numCores_spark=5, gene.number=3000, customGenelist=NULL,
                                min.loctions=20, min.features=20)
-LIBD <- SpatialPCA_buildKernel(LIBD, kerneltype="gaussian", bandwidthtype="SJ", bandwidth.set.by.user=NULL)
-LIBD <- SpatialPCA_EstimateLoading(LIBD,fast=TRUE,SpatialPCnum=20)
+LIBD <- SpatialPCA_buildKernel(LIBD, kerneltype="gaussian", bandwidthtype="SJ", bandwidth.set.by.user=NULL, sparseKernel = TRUE)
+LIBD <- SpatialPCA_EstimateLoading(temp,fast=TRUE,SpatialPCnum=20)
 LIBD <- SpatialPCA_SpatialPCs(LIBD, fast=TRUE)
 
 highres_ST <- SpatialPCA_highresolution(LIBD, platform='ST', newlocation = NULL)
@@ -38,4 +40,4 @@ if (!dir.exists(dir.output)) {
   dir.create(dir.output, recursive = TRUE)
 }
 write.csv(expr_pred, file = file.path(dir.output, 'exp_mat.csv'), row.names = TRUE)
-saveRDS(highres_ST, file = file.path(dir.output, 'resultObject.rds'))
+# saveRDS(highres_ST, file = file.path(dir.output, 'resultObject.rds'))
