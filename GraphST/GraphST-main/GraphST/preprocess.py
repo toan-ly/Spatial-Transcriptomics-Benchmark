@@ -96,7 +96,7 @@ def construct_interaction_KNN(adata, n_neighbors=3):
     print('Graph constructed!')   
 
 def preprocess(adata):
-    adata.layers['count'] = adata.X.toarray()
+    # adata.layers['count'] = adata.X.toarray()
     sc.pp.highly_variable_genes(adata, flavor="seurat_v3", layer='count', n_top_genes=3000)
     sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.log1p(adata)

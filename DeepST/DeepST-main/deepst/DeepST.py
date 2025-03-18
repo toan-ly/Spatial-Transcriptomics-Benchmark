@@ -156,7 +156,7 @@ class run():
 		adata,
 		n_domains = 7,
 		):
-		for res in sorted(list(np.arange(0.1, 2.5, 0.01)), reverse=True):
+		for res in sorted(list(np.arange(0.05, 3, 0.02)), reverse=True):
 			sc.tl.leiden(adata, random_state=0, resolution=res)
 			count_unique_leiden = len(pd.DataFrame(adata.obs['leiden']).leiden.unique())
 			if count_unique_leiden == n_domains:

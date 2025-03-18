@@ -56,10 +56,11 @@ def main():
         adata = deepen._get_augment(adata, spatial_type="KDTree", use_morphological=False)
 
         ###### Build graphs. "distType" includes "KDTree", "BallTree", "kneighbors_graph", "Radius", etc., see adj.py
-        graph_dict = deepen._get_graph(adata.obsm["spatial"], distType = "BallTree")
+        graph_dict = deepen._get_graph(adata.obsm["spatial"], distType = "Radius")
 
         ###### Enhanced data preprocessing
-        data = deepen._data_process(adata, pca_n_comps = 200)
+        n_comps = min(200, len(adata.var.index) - 1)
+        data = deepen._data_process(adata, pca_n_comps = n_comps)
 
         gt_df = adata.obs
         ###### Training models
@@ -70,7 +71,7 @@ def main():
         
         # print(f'Finished training {data_name}, deleting Image_crop folder...')
         # Remove Image_crop folder after training
-        os.system(f'rm -r {save_root}/Data')
+        # os.system(f'rm -r {save_root}/Data')
 
         ###### DeepST outputs
         adata.obsm["DeepST_embed"] = deepst_embed
