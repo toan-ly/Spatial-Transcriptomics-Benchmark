@@ -26,8 +26,7 @@ import SEDR
 data_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/data/mHypothalamus'
 output_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/Results/MERFISH/mHypothalamus/SEDR'
 
-data_names = os.listdir(data_path)
-data_names = ['-0.04', '-0.09', '-0.14', '-0.19', '-0.24']
+
 
 device = 'cuda:5' if torch.cuda.is_available() else 'cpu'
 for section_id in data_names:
