@@ -109,6 +109,7 @@ def seed_torch(seed):
 seed_torch(params.seed)
 
 sample_list = ['-0.04', '-0.09', '-0.14', '-0.19', '-0.24']
+# sample_list = ['-0.19']
 
 data_root = '/home/lytq/Spatial-Transcriptomics-Benchmark/data/mHypothalamus'
 save_root = '/home/lytq/Spatial-Transcriptomics-Benchmark/Results/MERFISH/mHypothalamus/conST'
@@ -130,7 +131,6 @@ for data_name in sample_list:
     if params.cell_feat_dim > len(adata_h5.var.index):
         params.cell_feat_dim = len(adata_h5.var.index) - 1
     adata_X = adata_preprocess(adata_h5, min_cells=5, pca_n_comps=params.cell_feat_dim)
-    graph_dict = None
     graph_dict = graph_construction(adata_h5.obsm['spatial'], adata_h5.shape[0], params)
 
     params.cell_num = adata_h5.shape[0]
@@ -145,20 +145,22 @@ for data_name in sample_list:
 
     # clustering
     adata_conST = anndata.AnnData(conST_embedding, obs=adata_h5.obs)
-    adata_conST.uns['spatial'] = adata_h5.uns['spatial']
+    # adata_conST.uns['spatial'] = adata_h5.uns['spatial']
+    adata_conST.obs['layer_guess'] = adata_h5.obs['layer_guess']
     adata_conST.obsm['spatial'] = adata_h5.obsm['spatial']
+    df_meta = adata_conST.obs
 
     sc.pp.neighbors(adata_conST, n_neighbors=params.eval_graph_n)
 
     print('Finding resolution...')
-    eval_resolution = res_search_fixed_clus(adata_conST, n_clusters, increment=0.02, start=0.1, end=1.0)
+    eval_resolution = res_search_fixed_clus(adata_conST, n_clusters, increment=0.01, start=0.05, end=1.5)
     print('Resolution:', eval_resolution)
     cluster_key = "conST_leiden"
     sc.tl.leiden(adata_conST, key_added=cluster_key, resolution=eval_resolution)
 
+    print(adata_conST)
     # plot_clustering(adata_conST, cluster_key)
     
-    df_meta = adata_conST.obs
     
     # Refine clusters
     # index = np.arange(start=0, stop=adata_X.shape[0]).tolist()
@@ -169,9 +171,9 @@ for data_name in sample_list:
     # adata_conST.obs['refine'] = refine
     
     # cluster_key = 'refine'
-    # plot_clustering(adata_conST, cluster_key)
+    # # plot_clustering(adata_conST, cluster_key)
     # df_meta['conST_refine'] = adata_conST.obs['refine'].tolist()
-    # df_meta.to_csv(f'{params.save_path}/metadata.tsv', sep='\t', index=False)
+    # # df_meta.to_csv(f'{params.save_path}/metadata.tsv', sep='\t', index=False)
     # ARI = metrics.adjusted_rand_score(df_meta['layer_guess'], df_meta['conST_refine'])
     # print('===== Project: {} refined ARI score: {:.3f}'.format(data_name, ARI))
     
