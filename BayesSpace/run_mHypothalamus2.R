@@ -132,25 +132,15 @@ for (sample.name in names(batch_cluster_map)) {
   start_time <- Sys.time()
   start_mem <- pryr::mem_used()
 
-  # benchmark <- mark({
-    filename <- paste0(data_path, '/MERFISH_Animal1_cnts.xlsx')
-    cnts <- as.data.frame(read_excel(filename, sheet=sample.name))
-    row.names(cnts) <- cnts[[1]]
-    cnts <- cnts[-1]
 
-    infoname <- paste0(data_path, '/MERFISH_Animal1_info.xlsx')
-    info <- as.data.frame(read_excel(infoname, sheet=sample.name))
-    row.names(info) <- info[[1]]
-    gt_labels <- list(info$z)
-    info <- info[-1]
-    # info <- info[-c(-2:-1)]
-
-    count <- as.matrix(cnts)
-    info <- info[c('x', 'y')]
-    colnames(info) <- c('row', 'col')
-
-    # data <- SingleCellExperiment(assays = list(logcounts=count), colData = colData)
-    sce <- SingleCellExperiment(assays=list(logcounts=as(count, "dgCMatrix")), colData=info)
+  load(sprintf("%s/MERFISH_input.RData", data_path))
+  count <- t(RNA)
+  info <- as.data.frame(xyz)
+  colnames(info) <- c("row", "col", "z")
+  colnames(count) <- NULL
+  
+  data <- SingleCellExperiment(assays = list(logcounts=count), colData = info)
+    # sce <- SingleCellExperiment(assays=list(logcounts=as(count, "dgCMatrix")), colData=info)
 
     # set.seed(101)
     # dec <- scran::modelGeneVar(data)
@@ -159,7 +149,7 @@ for (sample.name in names(batch_cluster_map)) {
     set.seed(102)
     # data <- scater::runPCA(data, subset_row=top)
 
-    data <- spatialPreprocess(sce, platform="ST", n.PCs = 20, n.HVGs = 2000, log.normalize = FALSE)
+    data <- spatialPreprocess(data, n.PCs = 20, n.HVGs = 2000, log.normalize = FALSE)
 
     q <- n_clusters  
     d <- 20
@@ -167,7 +157,6 @@ for (sample.name in names(batch_cluster_map)) {
     set.seed(104)
     data <- spatialCluster(
       data, 
-      platform = "ST",
       q=q, d=d, 
       init.method="mclust", model="t", 
       nrep=10000)

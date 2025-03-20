@@ -89,7 +89,7 @@ load_dataset <- function(input_path, sample.name, cluster.number) {
 
     sp_data <- CreateSeuratObject(
       counts = cnts, 
-      project = '43F',
+      project = 'MERFISH',
       min.cells = 3,
       names.delim = "-",
       names.field = 2)
