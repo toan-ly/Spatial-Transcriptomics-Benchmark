@@ -9,7 +9,7 @@ library(mclust)
 library(dplyr)
 library(BayesSpace)
 
-batch_cluster_map <- list('-0.04' = 8, '-0.09' = 8, '-0.14' = 8, '-0.24' = 8, '-0.29' = 8)
+batch_cluster_map <- list('-0.04' = 8, '-0.09' = 8, '-0.14' = 8, '-0.24' = 8, '-0.19' = 8)
 
 calculate_metrics <- function(ground_truth, clusters, data_matrix) {
   tryCatch({
@@ -225,6 +225,9 @@ run_sample <- function(input_path, sample.name, cluster.number) {
 
 input_path <- "/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/mHypothalamus"
 for (sample.name in names(batch_cluster_map)) {
+    if (sample.name != '-0.19') {
+        next
+    }
     cluster.number <- batch_cluster_map[[sample.name]]
     run_sample(input_path, sample.name, cluster.number)
 }

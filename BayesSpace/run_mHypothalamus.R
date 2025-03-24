@@ -11,7 +11,7 @@ library(readxl)
 library(pryr)
 
 
-batch_cluster_map <- list('-0.04' = 8, '-0.09' = 8, '-0.14' = 8, '-0.24' = 8, '-0.29' = 8)
+batch_cluster_map <- list('-0.04' = 8, '-0.09' = 8, '-0.14' = 8, '-0.24' = 8, '-0.19' = 8)
 
 calculate_metrics <- function(ground_truth, clusters, data_matrix) {
   tryCatch({
