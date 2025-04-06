@@ -11,6 +11,7 @@ library(dplyr)
 library(BayesSpace)
 library(SeuratData)
 library(pryr)
+library(peakRAM)
 
 batch_cluster_map <- list("-0.04" = 8, "-0.09" = 8, "-0.14" = 8, "-0.24" = 8, "-0.19" = 8)
 
@@ -153,9 +154,9 @@ run_sample <- function(input_path, sample.name, cluster.number) {
   BASS <- load_dataset2(input_path, sample.name, cluster.number)
 
   start_time <- Sys.time()
-  start_mem <- pryr::mem_used()
   # benchmark <- mark(
-  #   {
+  memory_usage <- peakRAM(
+    {
       BASS <- BASS.preprocess(
         BASS,
         doLogNormalize = TRUE,
@@ -174,7 +175,8 @@ run_sample <- function(input_path, sample.name, cluster.number) {
       gt <- BASS@results$c[[1]]
 
       metrics <- calculate_metrics(gt, pred)
-  #   },
+    }
+  )
   #   iterations = 1L
   # )
 
@@ -183,8 +185,8 @@ run_sample <- function(input_path, sample.name, cluster.number) {
   end_time <- Sys.time()
   execution_time <- as.numeric(end_time - start_time)
 
-  end_mem <- pryr::mem_used()
-  memory_usage <- as.numeric(end_mem - start_mem) / (1024^2)  # Memory in MB
+  memory_usage <- memory_usage$Peak_RAM_Used_MiB
+  # memory_usage <- mem_usage / (1024^2)  # Memory in MB
 
   metrics_df <- data.frame(
     Sample = sample.name,
