@@ -114,7 +114,7 @@ for (sample.name in names(batch_cluster_map)) {
   # UMAP
   umap_coords <- as.data.frame(reducedDim(dlpfc, "UMAP"))
   umap_coords$spot_id <- rownames(umap_coords)
-  write.csv(umap_coords, file = file.path(dir.output, "spatial_umap_coords.csv"), row.names = FALSE)
+  write.csv(umap_coords, file = file.path(dir.output, "spatial_umap_coords.csv"), row.names = TRUE)
 
   # UMAP Plot
   umap_plot <- ggplot(umap_coords, aes(x = UMAP1, y = UMAP2, color = as.factor(labels))) +

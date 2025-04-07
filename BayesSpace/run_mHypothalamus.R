@@ -9,7 +9,8 @@ library(cluster) # For silhouette score
 library(bench)   # For benchmarking execution time
 library(readxl)
 library(pryr)
-
+library(peakRAM)
+library(scater)  # For runUMAP
 
 batch_cluster_map <- list('-0.04' = 8, '-0.09' = 8, '-0.14' = 8, '-0.24' = 8, '-0.19' = 8)
 
@@ -93,13 +94,13 @@ save_results <- function(data, labels, metrics_df, dir.output) {
   
   # Save UMAP coordinates and plot
   # umap_coords <- as.data.frame(reducedDim(data, "UMAP_neighbors15"))
-  umap_coords <- umap::umap(reducedDim(data)$PCA)$layout
+  umap_coords <- as.data.frame(reducedDim(data, "UMAP"))
   umap_coords$spot_id <- rownames(umap_coords)
   write.csv(umap_coords,
             file = file.path(dir.output, "spatial_umap_coords.csv"),
-            row.names = FALSE)
+            row.names = TRUE)
   
-  umap_plot <- ggplot(umap_coords, aes(x = V1, y = V2, color = as.factor(labels))) +
+  umap_plot <- ggplot(umap_coords, aes(x = UMAP1, y = UMAP2, color = as.factor(labels))) +
     geom_point(size = 1.5, alpha = 0.8) +
     scale_color_brewer(palette = "Set1") +
     labs(title = "BayesSpace", x = "UMAP 1", y = "UMAP 2", color = 'Cluster') +
@@ -122,17 +123,28 @@ for (sample.name in names(batch_cluster_map)) {
   cat("Processing batch:", sample.name, "\n")
   n_clusters <- batch_cluster_map[[sample.name]]
 
-  dir.input <- file.path(data_path, sample.name)
+  # dir.input <- file.path(data_path, sample.name)
   dir.output <- file.path(save_path, sample.name)
 
   if (!dir.exists(file.path(dir.output))) {
     dir.create(file.path(dir.output), recursive = TRUE)
   }
 
-  start_time <- Sys.time()
-  start_mem <- pryr::mem_used()
 
   # benchmark <- mark({
+  memory_usage <- peakRAM({
+    start_time <- Sys.time()
+
+    set.seed(102)
+
+    # Load MERFISH data
+
+    # load(sprintf("%s/MERFISH_input.RData", data_path))
+    # count <- t(RNA)
+    # info <- as.data.frame(xyz)
+    # colnames(info) <- c("array_row", "array_col", "z")
+    # colnames(count) <- NULL
+
     filename <- paste0(data_path, '/MERFISH_Animal1_cnts.xlsx')
     cnts <- as.data.frame(read_excel(filename, sheet=sample.name))
     row.names(cnts) <- cnts[[1]]
@@ -143,52 +155,51 @@ for (sample.name in names(batch_cluster_map)) {
     row.names(info) <- info[[1]]
     gt_labels <- list(info$z)
     info <- info[-1]
-    # info <- info[-c(-2:-1)]
+    
 
     count <- as.matrix(cnts)
     info <- info[c('x', 'y')]
-    colnames(info) <- c('row', 'col')
+    colnames(info) <- c('array_row', 'array_col')
+    colData <- info
 
-    # data <- SingleCellExperiment(assays = list(logcounts=count), colData = colData)
-    sce <- SingleCellExperiment(assays=list(logcounts=as(count, "dgCMatrix")), colData=info)
+    rownames(colData) <- colnames(count)
 
-    # set.seed(101)
-    # dec <- scran::modelGeneVar(data)
-    # top <- scran::getTopHVGs(dec, n = 2000)
+    sce <- SingleCellExperiment(assays=list(counts=as(count, "dgCMatrix")), colData=colData)
 
-    set.seed(102)
-    # data <- scater::runPCA(data, subset_row=top)
+    # colnames(sce) <- make.names(colnames(sce), unique=TRUE)
 
-    data <- spatialPreprocess(sce, platform="ST", n.PCs = 20, n.HVGs = 2000, log.normalize = FALSE)
-
+    sce <- spatialPreprocess(sce, n.PCs = 20, n.HVGs = 2000, log.normalize = TRUE)
+  
     q <- n_clusters  
     d <- 20
+    
+    # colData(sce)$array_row <- colData(sce)$row
+    # colData(sce)$array_col <- colData(sce)$col
 
-    set.seed(104)
     data <- spatialCluster(
-      data, 
-      platform = "ST",
-      q=q, d=d, 
+      sce, 
+      q=q, d=d,
       init.method="mclust", model="t", 
-      nrep=10000)
+      nrep=10000, 
+      # gamma=3,
+      # save.chain = TRUE,
+    )
+
+    data <- runUMAP(data, dimred="PCA", name="UMAP")
 
     labels <- data$spatial.cluster
-    gt <- data$z
+    gt <- data$cluster.init
     pca_data <- reducedDim(data, "PCA")
 
     metrics <- calculate_metrics(gt, labels, pca_data)
     cat("ARI for batch", sample.name, ":", metrics$ARI, "\n")    
-  # }, iterations = 1L)
 
     end_time <- Sys.time()
-    end_mem <- pryr::mem_used()
+  })
+  # }, iterations = 1L)
 
   execution_time <- as.numeric(end_time - start_time)
-  memory_usage <- as.numeric(end_mem - start_mem) / (1024^2)  # Memory in MB
-
-  # Extract execution time and memory
-  # execution_time <- as.numeric(benchmark$time[[1]])  # Time in seconds
-  # memory_usage <- as.numeric(benchmark$mem_alloc[[1]]) / (1024^2)  # Memory in MB
+  memory_usage <- memory_usage$Peak_RAM_Used_MiB
 
   metrics_df <- data.frame(
     Sample = sample.name,

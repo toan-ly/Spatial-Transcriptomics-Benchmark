@@ -153,10 +153,11 @@ run_sample <- function(input_path, sample.name, cluster.number) {
   dir.input <- file.path(input_path, sample.name)
   BASS <- load_dataset2(input_path, sample.name, cluster.number)
 
-  start_time <- Sys.time()
   # benchmark <- mark(
   memory_usage <- peakRAM(
     {
+      start_time <- Sys.time()
+
       BASS <- BASS.preprocess(
         BASS,
         doLogNormalize = TRUE,
@@ -175,6 +176,8 @@ run_sample <- function(input_path, sample.name, cluster.number) {
       gt <- BASS@results$c[[1]]
 
       metrics <- calculate_metrics(gt, pred)
+
+      end_time <- Sys.time()
     }
   )
   #   iterations = 1L
@@ -182,11 +185,8 @@ run_sample <- function(input_path, sample.name, cluster.number) {
 
   # execution_time <- as.numeric(benchmark$time[[1]])
   # memory_usage <- as.numeric(benchmark$mem_alloc[[1]]) / (1024^2) # Memory in MBsample.name <- '151673'
-  end_time <- Sys.time()
   execution_time <- as.numeric(end_time - start_time)
-
   memory_usage <- memory_usage$Peak_RAM_Used_MiB
-  # memory_usage <- mem_usage / (1024^2)  # Memory in MB
 
   metrics_df <- data.frame(
     Sample = sample.name,

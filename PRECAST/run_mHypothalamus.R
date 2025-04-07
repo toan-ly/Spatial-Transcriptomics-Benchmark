@@ -75,7 +75,7 @@ calculate_metrics <- function(ground_truth, clusters, data_matrix) {
 }
 
 load_dataset <- function(input_path, sample.name, cluster.number) {
-    dir.input <- file.path(input_path, sample.name)
+    # dir.input <- file.path(input_path, sample.name)
     
     filename = paste0(input_path, '/MERFISH_Animal1_cnts.xlsx')
     cnts <- as.data.frame(read_excel(filename, sheet = sample.name))
