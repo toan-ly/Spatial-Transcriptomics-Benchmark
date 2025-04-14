@@ -2,7 +2,7 @@ library(CARD)
 library(Matrix)
 
 
-setwd('/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/breast')
+setwd('/home/lytq/Spatial-Transcriptomics-Benchmark/data/breast')
 
 org_st_count = read.csv('Out_gene_expressions_10000genes.csv',header = T, row.names = 1)
 sc_exp = read.table('raw_somatosensory_sc_exp.txt',header = T,row.names = 1)
@@ -33,7 +33,7 @@ CARD_obj = createCARDObject(
 
 CARD_obj = CARD_deconvolution(CARD_object = CARD_obj)
 
-out_path = '/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/Results/Deconvolution/breast/CARD'
+out_path = '/home/lytq/Spatial-Transcriptomics-Benchmark/Results/Deconvolution/breast/CARD'
 dir.create(out_path, showWarnings = FALSE, recursive = TRUE)
 write.csv(CARD_obj@Proportion_CARD, file = paste0(out_path, '/CARD_breast_10000.csv'), row.names = TRUE)
 

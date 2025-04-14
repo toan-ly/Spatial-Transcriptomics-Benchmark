@@ -1,11 +1,11 @@
 library(spacexr)
 library(Matrix)
 
-input_dir = "/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/lymph/"
+input_dir = "/home/lytq/Spatial-Transcriptomics-Benchmark/data/lymph/"
 load_seqFISH=function(n_genes){
     st_counts_fp=sprintf("%sOut_gene_expressions_%dgenes.csv",input_dir,n_genes)
     st_locations_fp=sprintf("%sOut_rect_locations.csv",input_dir)
-    sc_counts_fp=sprintf("%sraw_somatosensory_sc_exp.txt",input_dir)
+    sc_counts_fp=sprintf("%smapped_sc_exp.txt",input_dir)
     sc_labels_fp=sprintf("%ssomatosensory_sc_labels.txt",input_dir)
     
     st_counts=read.csv(st_counts_fp,sep=",",row.names=1)
@@ -27,7 +27,7 @@ load_seqFISH=function(n_genes){
 }
 
 data = load_seqFISH(10000)
-out_dir="/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/Results/Deconvolution/lymph/RCTD"
+out_dir="/home/lytq/Spatial-Transcriptomics-Benchmark/Results/Deconvolution/lymph/RCTD"
 dir.create(out_dir,recursive = TRUE, showWarnings = FALSE)
 out_matrix_norm_fp=file.path(out_dir,sprintf("RCTD_lymph_10000.csv"))
 
