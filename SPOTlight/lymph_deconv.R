@@ -1,9 +1,10 @@
 library(SPOTlight)
 library(Seurat)
 library(SeuratObject)
-options(future.globals.maxSize = 1e9)
+options(future.globals.maxSize = 8 * 1024^3)  # 8 GiB
 
-setwd('/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/breast')
+
+setwd('/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/data/lymph')
 
 org_st_count = read.csv('Out_gene_expressions_10000genes.csv',header = T, row.names = 1)
 sc_exp = read.table('raw_somatosensory_sc_exp.txt',header = T,row.names = 1)
@@ -60,6 +61,6 @@ spotlight_ls_pbmc <- spotlight_deconvolution(
 
 spotlight_pred = as.matrix(spotlight_ls_pbmc[[2]])
 
-out_path = '/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/Results/Deconvolution/breast/SPOTlight'
+out_path = '/Users/toanne/Desktop/Spatial-Transcriptomics-Benchmark/Results/Deconvolution/lymph/SPOTlight'
 dir.create(out_path, showWarnings = FALSE, recursive = TRUE)
-write.csv(spotlight_pred, file = paste0(out_path, '/SPOTlight_breast_10000.csv'), row.names = TRUE)
+write.csv(spotlight_pred, file = paste0(out_path, '/SPOTlight_lymph_10000.csv'), row.names = TRUE)
