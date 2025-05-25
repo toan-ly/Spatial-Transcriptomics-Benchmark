@@ -3,11 +3,11 @@
 We benchmark 16 popular computational methods in spatial transcriptomics. This repository focuses on clustering and deconvolution tasks using public datasets. Each method is organized in its own folder with scripts to reproduce the results. 
 
 ## 📚 Table of Contents
-- [Methods Included](#-methods-included)
-- [Datasets](#-datasets)
-- [Evaluation Metrics](#-evaluation-metrics)
-- [Installation](#-installation)
-- [Reference](#-reference)
+- [Methods Included](#methods-included)
+- [Datasets](#datasets)
+- [Evaluation Metrics](#evaluation-metrics)
+- [Installation](#installation)
+- [Reference](#reference)
 
 ## Methods Included
 | Category         | Method        | Folder |
