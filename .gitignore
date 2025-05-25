@@ -5,6 +5,7 @@ __pycache__/
 data
 RESULTS
 Results
+results
 # C extensions
 *.so
 .DS_Store
