@@ -30,7 +30,7 @@ We benchmark 16 popular computational methods in spatial transcriptomics. This r
 | Deconvolution    | [SPOTlight](https://github.com/MarcElosua/SPOTlight)     | [methods/SPOTlight](./methods/SPOTlight) |
 
 ## Datasets
-Please refer to [this github repo](https://github.com/OliiverHu/BenchmarkST_reproducibility/blob/main/docs/source/Data%20availability.rst) for the datasets
+Please refer to [this github repo](https://github.com/OliiverHu/BenchmarkST_reproducibility/blob/main/docs/source/Data%20availability.rst) or [this link](https://drive.google.com/drive/folders/1TJOdeuGesE-b9bEfVjXsohwaQ0CXiwSQ?usp=sharing) for the datasets
 
 ## Evaluation Metrics
 We evaluate each method based on these metrics:
