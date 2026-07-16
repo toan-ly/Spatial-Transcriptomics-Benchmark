@@ -24,11 +24,10 @@ sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/utils')
 from evaluate import evaluate_clustering
 from load_st_data import load_colon_visium_hd
 
-# SEEDS = [42, 123, 456, 789, 2024]
-SEEDS = [2024]
+SEEDS = [42, 123, 456, 789, 2024]
 SAMPLE_NAME = 'visium_hd_cancer_colon_square_016um'
 N_CLUSTERS = 6
-REFINE_RADIUS = 6   # label refinement neighbors (not microns); match STAGATE k≈6
+REFINE_RADIUS = 6   
 
 
 def set_seed(seed):

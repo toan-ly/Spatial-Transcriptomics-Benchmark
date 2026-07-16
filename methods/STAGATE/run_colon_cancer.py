@@ -24,8 +24,7 @@ from evaluate import evaluate_clustering
 from load_st_data import load_colon_visium_hd
     
 
-# SEEDS = [42, 123, 456, 789, 2024]
-SEEDS = [456]
+SEEDS = [42, 123, 456, 789, 2024]
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -37,7 +36,6 @@ def set_seed(seed):
 
 
 def main():
-    # the location of R (used for the mclust clustering)
     # os.environ['R_HOME'] = '/home/lytq/.conda/envs/stagate/lib/R'
     # os.environ['R_USER'] = '/.conda/envs/stagate/lib/python3.10/site-packages/rpy2'
 
