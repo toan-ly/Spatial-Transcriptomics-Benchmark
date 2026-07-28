@@ -19,7 +19,8 @@ sys.path.append('/home/lytq/Spatial-Transcriptomics-Benchmark/utils')
 from evaluate import evaluate_clustering
 from load_st_data import load_colon_visium_hd
 
-SEEDS = [42, 123, 456, 789, 2024]
+# SEEDS = [42, 123, 456, 789, 2024]
+SEEDS = [2024]
 SAMPLE_NAME = 'visium_hd_cancer_colon_square_016um'
 N_CLUSTERS = 6
 
@@ -90,8 +91,10 @@ def main():
         # l = spg.find_l(p=p, adj=adj, start=100, end=500, sep=1, tol=0.01)
         
         spg.test_l(adj, [0.5, 1, 2, 5, 10, 20, 50, 100, 200])
+        print('test_l finished')
         l = spg.find_l(p=p, adj=adj, start=1, end=100, sep=0.5, tol=0.01)
         if l is None:
+            print('Failed 1-100')
             l = spg.search_l(p=p, adj=adj, start=0.1, end=200, tol=0.01)
         if l is None:
             print("Warning: auto l search failed; using fallback l=10")
@@ -101,9 +104,10 @@ def main():
         r_seed = t_seed = n_seed = seed
         res = spg.search_res(
             adata, adj, l, N_CLUSTERS,
-            start=0.7, step=0.1, tol=5e-3, lr=0.05, max_epochs=20,
+            start=0.2, step=0.1, tol=5e-3, lr=0.05, max_epochs=20,
             r_seed=r_seed, t_seed=t_seed, n_seed=n_seed,
         )
+        print(f'Res = {res}')
 
         clf = spg.SpaGCN()
         clf.set_l(l)
@@ -117,7 +121,7 @@ def main():
         )
         y_pred, _ = clf.predict()
         adata.obs['pred'] = y_pred
-        adata.obs['pred'] = y_pred.astype('category')
+        # adata.obs['pred'] = y_pred.astype('category')
 
         # Refinement on grid coords; square neighbors for 16 um HD bins
         adj_2d = spg.calculate_adj_matrix(x=x_array, y=y_array, histology=False)
